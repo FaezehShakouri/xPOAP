@@ -12,7 +12,7 @@ contract EvenNumber {
     ISemaphore public immutable semaphore;
     uint256 public immutable eventId;
     mapping(bytes32 => bool) public nullifires;
-    bytes32 public immutable groupId;
+    uint256 public immutable groupId;
 
     struct BlockCommitment {
         bytes32 blockHash;
@@ -25,12 +25,24 @@ contract EvenNumber {
         bytes32 nullifier;
     }
 
-    constructor(IRiscZeroVerifier _verifier, ISemaphore _semaphore, uint256 _eventId) {
+    struct Signal {
+        uint256 signal;
+        uint256 scope;
+        uint256 merkleTreeRoot;
+        uint256 nullifierHash;
+        uint256[8] proof;
+    }
+
+    constructor(
+        IRiscZeroVerifier _verifier,
+        address _semaphore,
+        uint256 _eventId
+    ) {
         verifier = _verifier;
-        semaphore = _semaphore; 
+        semaphore = ISemaphore(_semaphore);
         eventId = _eventId;
-        groupId = keccak256(abi.encode(address(this), _eventId));
-        semaphore.createGroup(uint256(groupId), 20, address(this));
+        groupId = uint256(keccak256(abi.encode(address(this), _eventId)));
+        semaphore.createGroup(groupId, 20, address(this));
     }
 
     function joinGroup(
@@ -38,14 +50,29 @@ contract EvenNumber {
         bytes32 postStateDigest,
         bytes calldata seal
     ) public {
-        require(verifier.verify(seal, imageId, postStateDigest, sha256(journal)));
+        require(
+            verifier.verify(seal, imageId, postStateDigest, sha256(journal))
+        );
         (
             ProofData memory proofData,
             BlockCommitment memory blockCommitment
         ) = abi.decode(journal, (ProofData, BlockCommitment));
 
-        require(nullifires[proofData.nullifier] == false);
+        require(nullifires[proofData.nullifier] == false, "DUPLICATE_PROOF");
+        // require(proofData.eventId == eventId, "INVALID_EVENT_ID");
+
         nullifires[proofData.nullifier] = true;
-        semaphore.addMember(uint256(groupId), proofData.semaphoreId);
+        semaphore.addMember(groupId, proofData.semaphoreId);
+    }
+
+    function validateSignal(Signal memory signal) external {
+        ISemaphore(semaphore).verifyProof(
+            groupId,
+            signal.merkleTreeRoot,
+            signal.signal,
+            signal.nullifierHash,
+            signal.scope,
+            signal.proof
+        );
     }
 }
