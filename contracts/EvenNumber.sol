@@ -11,6 +11,8 @@ contract EvenNumber {
     bytes32 public constant imageId = ImageID.IS_EVEN_ID;
     ISemaphore public immutable semaphore;
     uint256 public immutable eventId;
+    mapping(bytes32 => bool) public nullifires;
+    bytes32 public immutable groupId;
 
     struct BlockCommitment {
         bytes32 blockHash;
@@ -27,8 +29,8 @@ contract EvenNumber {
         verifier = _verifier;
         semaphore = _semaphore; 
         eventId = _eventId;
-        bytes32 group_id = keccak256(abi.encode(address(this), _eventId));
-        semaphore.createGroup(uint256(group_id), 20, address(this));
+        groupId = keccak256(abi.encode(address(this), _eventId));
+        semaphore.createGroup(uint256(groupId), 20, address(this));
     }
 
     function joinGroup(
@@ -41,5 +43,9 @@ contract EvenNumber {
             ProofData memory proofData,
             BlockCommitment memory blockCommitment
         ) = abi.decode(journal, (ProofData, BlockCommitment));
+
+        require(nullifires[proofData.nullifier] == false);
+        nullifires[proofData.nullifier] = true;
+        semaphore.addMember(uint256(groupId), proofData.semaphoreId);
     }
 }
