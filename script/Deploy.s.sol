@@ -21,7 +21,7 @@ import {console2} from "forge-std/console2.sol";
 import {IRiscZeroVerifier} from "risc0/IRiscZeroVerifier.sol";
 import {ControlID, RiscZeroGroth16Verifier} from "risc0/groth16/RiscZeroGroth16Verifier.sol";
 
-import {EvenNumber} from "../contracts/EvenNumber.sol";
+import {POAPGroup} from "../contracts/POAPGroup.sol";
 
 /// @notice Deployment script for the RISC Zero starter project.
 /// @dev Use the following environment variable to control the deployment:
@@ -29,7 +29,7 @@ import {EvenNumber} from "../contracts/EvenNumber.sol";
 ///
 /// See the Foundry documentation for more information about Solidity scripts.
 /// https://book.getfoundry.sh/tutorials/solidity-scripting
-contract EvenNumberDeploy is Script {
+contract POAPGroupDeploy is Script {
     function run() external {
         uint256 deployerKey = uint256(vm.envBytes32("ETH_WALLET_PRIVATE_KEY"));
 
@@ -41,12 +41,12 @@ contract EvenNumberDeploy is Script {
         );
         console2.log("Deployed RiscZeroGroth16Verifier to", address(verifier));
 
-        EvenNumber evenNumber = new EvenNumber(
+        POAPGroup poapGroup = new POAPGroup(
             verifier,
             0x3889927F0B5Eb1a02C6E2C20b39a1Bd4EAd76131,
             10
         );
-        console2.log("Deployed EvenNumber to", address(evenNumber));
+        console2.log("Deployed POAPGroup to", address(poapGroup));
 
         vm.stopBroadcast();
     }

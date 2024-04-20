@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
-
 pragma solidity ^0.8.20;
 
 import {IRiscZeroVerifier} from "risc0/IRiscZeroVerifier.sol";
-import {ImageID} from "./ImageID.sol"; // auto-generated contract after running `cargo build`.
+import {ImageID} from "./ImageID.sol"; 
 import {ISemaphore} from "./ISemaphore.sol";
 
-contract EvenNumber {
+contract POAPGroup {
     IRiscZeroVerifier public immutable verifier;
-    bytes32 public constant imageId = ImageID.IS_EVEN_ID;
+    bytes32 public constant imageId = ImageID.IS_POAP_OWNER_ID;
+
     ISemaphore public immutable semaphore;
     uint256 public immutable eventId;
-    mapping(bytes32 => bool) public nullifires;
     uint256 public immutable groupId;
+    mapping(bytes32 => bool) public nullifires;
 
     struct BlockCommitment {
         bytes32 blockHash;
