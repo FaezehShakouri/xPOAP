@@ -38,7 +38,6 @@ use risc0_ethereum_view_call::{
 };
 use risc0_zkvm::serde::to_vec;
 use risc0_zkvm::Journal;
-use tracing_subscriber::EnvFilter;
 
 // `IEvenNumber` interface automatically generated via the alloy `sol!` macro.
 sol! {
@@ -84,21 +83,15 @@ fn get_verification_inputs(
     poap_index: U256,
 ) -> Result<Vec<u8>> {
     /// Address of the USDT contract on Ethereum Sepolia
-    const CONTRACT: Address = address!("22C1f6050E56d2876009903609a2cC3fEf83B415");
+    const contract: Address = address!("22C1f6050E56d2876009903609a2cC3fEf83B415");
 
     /// Caller address
-    const CALLER: Address = address!("6f22b9f222D9e9AF4481df55B863A567dfe1dd42");
+    const caller: Address = address!("6f22b9f222D9e9AF4481df55B863A567dfe1dd42");
 
-    /// Function to call
-    let CALL: POAP::tokenDetailsOfOwnerByIndexCall = POAP::tokenDetailsOfOwnerByIndexCall {
+    let call: POAP::tokenDetailsOfOwnerByIndexCall = POAP::tokenDetailsOfOwnerByIndexCall {
         owner: address!("6f22b9f222D9e9AF4481df55B863A567dfe1dd42"),
         index: poap_index,
     };
-
-    // Initialize tracing. In order to view logs, run `RUST_LOG=info cargo run`
-    // tracing_subscriber::fmt().with_env_filter(EnvFilter::from_default_env()).init();
-    // parse the command line arguments
-    // let args = Args::parse();
 
     // Create a view call environment from an RPC endpoint and a block number. If no block number is
     // provided, the latest block is used. The `with_chain_spec` method is used to specify the
@@ -110,8 +103,8 @@ fn get_verification_inputs(
 
     // Preflight the view call to construct the input that is required to execute the function in
     // the guest. It also returns the result of the call.
-    let (view_call_input, returns) = ViewCall::new(CALL, CONTRACT)
-        .with_caller(CALLER)
+    let (view_call_input, returns) = ViewCall::new(call, contract)
+        .with_caller(caller)
         .preflight(env)?;
     println!(
         "For block {} `{}` returns: {} - {}",
@@ -141,9 +134,6 @@ fn get_verification_inputs(
 }
 
 fn main() -> Result<()> {
-    // env_logger::init();
-    // let args = Args::parse();
-
     // // Create a new `TxSender`.
     // let tx_sender = TxSender::new(
     //     args.chain_id,
@@ -152,6 +142,7 @@ fn main() -> Result<()> {
     //     &args.contract,
     // )?;
 
+    // Get inputs
     let signing_key = SigningKey::random(&mut OsRng); // Serialize with `::to_bytes()`
     let message = b"This is a message that will be signed, and verified within the zkVM";
     let signature: Signature = signing_key.sign(message);

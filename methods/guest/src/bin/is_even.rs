@@ -21,6 +21,14 @@ use alloy_sol_types::{sol, SolValue};
 use risc0_ethereum_view_call::{config::GNOSIS_CHAIN_SPEC, ethereum::EthViewCallInput, ViewCall};
 use risc0_zkvm::guest::env;
 risc0_zkvm::guest::entry!(main);
+use k256::{
+    ecdsa::{signature::Verifier, Signature, VerifyingKey},
+    EncodedPoint,
+};
+use ark_bn254::Fr;
+use ark_ff::{BigInteger, PrimeField};
+use light_poseidon::{parameters::bn254_x5, Poseidon, PoseidonHasher};
+
 
 sol! {
     interface POAP {
@@ -28,16 +36,10 @@ sol! {
     }
 }
 
-use k256::{
-    ecdsa::{signature::Verifier, Signature, VerifyingKey},
-    EncodedPoint,
-};
+
 const CONTRACT: Address = address!("22C1f6050E56d2876009903609a2cC3fEf83B415");
 const CALLER: Address = address!("6f22b9f222D9e9AF4481df55B863A567dfe1dd42");
 
-use ark_bn254::Fr;
-use ark_ff::{BigInteger, PrimeField};
-use light_poseidon::{parameters::bn254_x5, Poseidon, PoseidonHasher};
 
 fn main() {
     // Read the input from the guest environment.
