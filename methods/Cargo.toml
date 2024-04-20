@@ -3,6 +3,26 @@ name = "methods"
 version = { workspace = true }
 edition = { workspace = true }
 
+[dependencies]
+risc0-ethereum-view-call = { path = "../risc0-ethereum/view-call", features=["host"] }
+poseidon-rs = {workspace = true}
+alloy-primitives = { workspace = true , features=["k256"]}
+alloy-sol-types = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+risc0-zkvm = { workspace = true, features = ["client"] }
+tracing-subscriber = { workspace = true }
+rand_core = "0.6.4"
+hex-literal = "0.4"
+k256 = { version = "*", features = ["arithmetic", "serde", "expose-field", "std", "ecdsa"], default_features = false }
+
+[patch.crates-io]
+# use optimized risc0 circuit
+crypto-bigint = { git = "https://github.com/risc0/RustCrypto-crypto-bigint", tag = "v0.5.5-risczero.0" }
+k256 = { git = "https://github.com/risc0/RustCrypto-elliptic-curves", tag = "k256/v0.13.3-risczero.0" }
+sha2 = { git = "https://github.com/risc0/RustCrypto-hashes", tag = "sha2-v0.10.8-risczero.0" }
+
+
 [package.metadata.risc0]
 methods = ["guest"]
 
