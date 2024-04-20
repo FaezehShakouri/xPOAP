@@ -28,7 +28,7 @@ contract EvenNumber {
         semaphore = _semaphore; 
         eventId = _eventId;
         bytes32 group_id = keccak256(abi.encode(address(this), _eventId));
-        semaphore.createGroup(group_id, 20, address(this));
+        semaphore.createGroup(uint256(group_id), 20, address(this));
     }
 
     function joinGroup(
