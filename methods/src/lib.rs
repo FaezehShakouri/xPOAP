@@ -28,7 +28,7 @@ use k256::{
     EncodedPoint,
 };
 use risc0_ethereum_view_call::{
-    config::ETH_SEPOLIA_CHAIN_SPEC, ethereum::EthViewCallEnv, EvmHeader, ViewCall,
+    config::ETH_SEPOLIA_CHAIN_SPEC, ethereum::EthViewCallEnv, BlockCommitment, EvmHeader, ViewCall,
 };
 use std::collections::BTreeMap;
 
@@ -118,6 +118,14 @@ fn prove_ecdsa_verification(
     Ok(session_info)
 }
 
+sol!(
+    struct ProofData {
+        uint256 eventId;
+        uint256 semaphoreId;
+        bytes32 nullifier;
+    }
+);
+
 #[cfg(test)]
 mod tests {
 
@@ -133,13 +141,13 @@ mod tests {
             prove_ecdsa_verification(signing_key.verifying_key(), message, &signature, poap_index)
                 .unwrap();
 
-        // extract the proof from the session info and validate it
-        let (bytes_1, bytes_2, bytes_3): (Vec<u8>, String, U256) =
-            session_info.journal.decode().unwrap();
+        println!("Session info: {:?}", session_info.journal.as_ref());
 
-        println!("Commitment: {:?}", bytes_1);
-        println!("Signature Hash: {}", bytes_2);
-        println!("Event Id: {}", bytes_3);
+        let proof_data = ProofData::abi_decode(&session_info.journal.as_ref(), true).unwrap();
+
+        println!("Proof data: {}", proof_data.eventId);
+        println!("Proof data: {}", proof_data.semaphoreId);
+        println!("Proof data: {}", proof_data.nullifier);
 
         // let bytes = session_info.journal.as_ref();
         // println!("------------ {:?}", &bytes);

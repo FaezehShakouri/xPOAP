@@ -30,19 +30,27 @@ use k256::{
 };
 use methods::IS_EVEN_ELF;
 use rand_core::OsRng;
-use risc0_ethereum_view_call::config::{
-    ChainSpec, ForkCondition, EIP1559_CONSTANTS_DEFAULT, GNOSIS_CHAIN_SPEC,
-};
 use risc0_ethereum_view_call::{
     config::ETH_SEPOLIA_CHAIN_SPEC, ethereum::EthViewCallEnv, EvmHeader, ViewCall,
 };
+use risc0_ethereum_view_call::{
+    config::{ChainSpec, ForkCondition, EIP1559_CONSTANTS_DEFAULT, GNOSIS_CHAIN_SPEC},
+    BlockCommitment,
+};
 use risc0_zkvm::serde::to_vec;
 use risc0_zkvm::Journal;
+use tokio::sync::Semaphore;
 
 // `IEvenNumber` interface automatically generated via the alloy `sol!` macro.
 sol! {
     interface IEvenNumber {
         function set(uint256 x, bytes32 post_state_digest, bytes calldata seal);
+    }
+}
+
+sol! {
+    interface ISemaphore {
+        function joinGroup(bytes memory journal, bytes32 post_state_digest, bytes calldata seal);
     }
 }
 
@@ -53,28 +61,27 @@ sol! {
     }
 }
 
-// /// Arguments of the publisher CLI.
-// #[derive(Parser, Debug)]
-// #[clap(author, version, about, long_about = None)]
-// struct Args {
-//     // /// Ethereum chain ID
-//     // #[clap(long)]
-//     // chain_id: u64,
+/// Arguments of the publisher CLI.
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// Ethereum chain ID
+    #[clap(long)]
+    chain_id: u64,
 
-//     // /// Ethereum Node endpoint.
-//     // #[clap(long, env)]
-//     // eth_wallet_private_key: String,
-//     /// Ethereum Node endpoint.
-//     #[arg(short, long, env = "RPC_URL")]
-//     rpc_url: String,
-//     // /// Application's contract address on Ethereum
-//     // #[clap(long)]
-//     // contract: String,
-
-//     // /// The input to provide to the guest binary
-//     // #[clap(short, long)]
-//     // input: U256,
-// }
+    /// Ethereum Node endpoint.
+    #[clap(long, env)]
+    eth_wallet_private_key: String,
+    /// Ethereum Node endpoint.
+    #[arg(short, long, env = "RPC_URL")]
+    rpc_url: String,
+    /// Application's contract address on Ethereum
+    #[clap(long)]
+    contract: String,
+    // /// The input to provide to the guest binary
+    // #[clap(short, long)]
+    // input: U256,
+}
 
 fn get_verification_inputs(
     verifying_key: &VerifyingKey,
@@ -134,13 +141,16 @@ fn get_verification_inputs(
 }
 
 fn main() -> Result<()> {
-    // // Create a new `TxSender`.
-    // let tx_sender = TxSender::new(
-    //     args.chain_id,
-    //     &args.rpc_url,
-    //     &args.eth_wallet_private_key,
-    //     &args.contract,
-    // )?;
+    // parse the command line arguments
+    let args = Args::parse();
+
+    // Create a new `TxSender`.
+    let tx_sender = TxSender::new(
+        args.chain_id,
+        &args.rpc_url,
+        &args.eth_wallet_private_key,
+        &args.contract,
+    )?;
 
     // Get inputs
     let signing_key = SigningKey::random(&mut OsRng); // Serialize with `::to_bytes()`
@@ -157,27 +167,16 @@ fn main() -> Result<()> {
     // Send an off-chain proof request to the Bonsai proving service.
     let (journal, post_state_digest, seal) = BonsaiProver::prove(IS_EVEN_ELF, &input)?;
 
-    let journal = Journal::new(journal);
-    let (bytes_1, bytes_2, bytes_3): (Vec<u8>, String, U256) = journal.decode().unwrap();
-    println!("Commitment: {:?}", bytes_1);
-    println!("Signature Hash: {}", bytes_2);
-    println!("Event Id: {}", bytes_3);
-
-    // Decode the journal. Must match what was written in the guest with
-    // `env::commit_slice`.
-    // let x = U256::abi_decode(&journal, true).context("decoding journal data")?;
-
-    // // Encode the function call for `IEvenNumber.set(x)`.
-    // let calldata = IEvenNumber::IEvenNumberCalls::set(IEvenNumber::setCall {
-    //     x,
-    //     post_state_digest,
-    //     seal: seal.into(),
-    // })
-    // .abi_encode();
+    let join_calldata = ISemaphore::ISemaphoreCalls::joinGroup(ISemaphore::joinGroupCall {
+        journal: journal.into(),
+        post_state_digest,
+        seal: seal.into(),
+    })
+    .abi_encode();
 
     // Send the calldata to Ethereum.
-    // let runtime = tokio::runtime::Runtime::new()?;
-    // runtime.block_on(tx_sender.send(calldata))?;
+    let runtime = tokio::runtime::Runtime::new()?;
+    runtime.block_on(tx_sender.send(join_calldata))?;
 
     Ok(())
 }
