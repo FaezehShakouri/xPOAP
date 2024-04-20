@@ -3,5 +3,6 @@
         "./apps/Cargo.toml",
         "./methods/Cargo.toml",
         "./methods/guest/Cargo.toml",
-    ]
+    ],
+    "solidity.compileUsingRemoteVersion": "v0.8.20+commit.a1b79de6"
 }

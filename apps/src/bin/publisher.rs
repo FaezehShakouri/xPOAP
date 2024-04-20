@@ -12,18 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This application demonstrates how to send an off-chain proof request
-// to the Bonsai proving service and publish the received proofs directly
-// to your deployed app contract.
-
 use alloy_primitives::{address, Address, U256};
-use alloy_sol_types::{sol, SolCall, SolInterface, SolValue};
-use anyhow::{Context, Result};
+use alloy_sol_types::{sol, SolCall, SolInterface};
+use anyhow::Result;
 use apps::{BonsaiProver, TxSender};
 use clap::Parser;
 use k256::{
     ecdsa::{
-        signature::{Keypair, Signer},
+        signature::Signer,
         Signature, SigningKey, VerifyingKey,
     },
     EncodedPoint,
@@ -31,17 +27,12 @@ use k256::{
 use methods::IS_EVEN_ELF;
 use rand_core::OsRng;
 use risc0_ethereum_view_call::{
-    config::ETH_SEPOLIA_CHAIN_SPEC, ethereum::EthViewCallEnv, EvmHeader, ViewCall,
+    ethereum::EthViewCallEnv, EvmHeader, ViewCall,
 };
-use risc0_ethereum_view_call::{
-    config::{ChainSpec, ForkCondition, EIP1559_CONSTANTS_DEFAULT, GNOSIS_CHAIN_SPEC},
-    BlockCommitment,
-};
+use risc0_ethereum_view_call::config::GNOSIS_CHAIN_SPEC;
 use risc0_zkvm::serde::to_vec;
-use risc0_zkvm::Journal;
-use tokio::sync::Semaphore;
 
-// `IEvenNumber` interface automatically generated via the alloy `sol!` macro.
+
 sol! {
     interface IEvenNumber {
         function set(uint256 x, bytes32 post_state_digest, bytes calldata seal);
@@ -55,7 +46,6 @@ sol! {
 }
 
 sol! {
-    /// ERC-20 balance function signature.
     interface POAP {
         function tokenDetailsOfOwnerByIndex(address owner, uint256 index) external view returns (uint256, uint256);
     }
@@ -72,15 +62,52 @@ struct Args {
     /// Ethereum Node endpoint.
     #[clap(long, env)]
     eth_wallet_private_key: String,
+
     /// Ethereum Node endpoint.
     #[arg(short, long, env = "RPC_URL")]
     rpc_url: String,
+
     /// Application's contract address on Ethereum
     #[clap(long)]
     contract: String,
-    // /// The input to provide to the guest binary
-    // #[clap(short, long)]
-    // input: U256,
+}
+
+fn main() -> Result<()> {
+    // parse the command line arguments
+    let args = Args::parse();
+
+    // Create a new `TxSender`.
+    let tx_sender = TxSender::new(
+        args.chain_id,
+        &args.rpc_url,
+        &args.eth_wallet_private_key,
+        &args.contract,
+    )?;
+
+    // Get inputs
+    let signing_key = SigningKey::random(&mut OsRng); 
+    let message = b"This is a message that will be signed, and verified within the zkVM";
+    let signature: Signature = signing_key.sign(message);
+    let poap_index: U256 = U256::from(0);
+    let input =
+        get_verification_inputs(signing_key.verifying_key(), message, &signature, poap_index)
+            .unwrap();
+
+    // Send an off-chain proof request to the Bonsai proving service.
+    let (journal, post_state_digest, seal) = BonsaiProver::prove(IS_EVEN_ELF, &input)?;
+
+    let join_calldata = ISemaphore::ISemaphoreCalls::joinGroup(ISemaphore::joinGroupCall {
+        journal: journal.into(),
+        post_state_digest,
+        seal: seal.into(),
+    })
+    .abi_encode();
+
+    // Send the calldata to Ethereum.
+    let runtime = tokio::runtime::Runtime::new()?;
+    runtime.block_on(tx_sender.send(join_calldata))?;
+
+    Ok(())
 }
 
 fn get_verification_inputs(
@@ -90,28 +117,24 @@ fn get_verification_inputs(
     poap_index: U256,
 ) -> Result<Vec<u8>> {
     /// Address of the USDT contract on Ethereum Sepolia
-    const contract: Address = address!("22C1f6050E56d2876009903609a2cC3fEf83B415");
+    const CONTRACT: Address = address!("22C1f6050E56d2876009903609a2cC3fEf83B415");
 
     /// Caller address
-    const caller: Address = address!("6f22b9f222D9e9AF4481df55B863A567dfe1dd42");
+    const CALLER: Address = address!("6f22b9f222D9e9AF4481df55B863A567dfe1dd42");
 
     let call: POAP::tokenDetailsOfOwnerByIndexCall = POAP::tokenDetailsOfOwnerByIndexCall {
         owner: address!("6f22b9f222D9e9AF4481df55B863A567dfe1dd42"),
         index: poap_index,
     };
 
-    // Create a view call environment from an RPC endpoint and a block number. If no block number is
-    // provided, the latest block is used. The `with_chain_spec` method is used to specify the
-    // chain configuration.
     let env = EthViewCallEnv::from_rpc(&std::env::var("RPC_URL").unwrap(), None)?
         .with_chain_spec(&GNOSIS_CHAIN_SPEC);
     let number = env.header().number();
-    let commitment = env.block_commitment();
 
     // Preflight the view call to construct the input that is required to execute the function in
     // the guest. It also returns the result of the call.
-    let (view_call_input, returns) = ViewCall::new(call, contract)
-        .with_caller(caller)
+    let (view_call_input, returns) = ViewCall::new(call, CONTRACT)
+        .with_caller(CALLER)
         .preflight(env)?;
     println!(
         "For block {} `{}` returns: {} - {}",
@@ -138,47 +161,6 @@ fn get_verification_inputs(
         .bytes();
 
     Ok(input)
-}
-
-fn main() -> Result<()> {
-    // parse the command line arguments
-    let args = Args::parse();
-
-    // Create a new `TxSender`.
-    let tx_sender = TxSender::new(
-        args.chain_id,
-        &args.rpc_url,
-        &args.eth_wallet_private_key,
-        &args.contract,
-    )?;
-
-    // Get inputs
-    let signing_key = SigningKey::random(&mut OsRng); // Serialize with `::to_bytes()`
-    let message = b"This is a message that will be signed, and verified within the zkVM";
-    let signature: Signature = signing_key.sign(message);
-    let poap_index: U256 = U256::from(0);
-    let input =
-        get_verification_inputs(signing_key.verifying_key(), message, &signature, poap_index)
-            .unwrap();
-
-    // ABI encode the input for the guest binary, to match what the `is_even` guest
-    // code expects.
-
-    // Send an off-chain proof request to the Bonsai proving service.
-    let (journal, post_state_digest, seal) = BonsaiProver::prove(IS_EVEN_ELF, &input)?;
-
-    let join_calldata = ISemaphore::ISemaphoreCalls::joinGroup(ISemaphore::joinGroupCall {
-        journal: journal.into(),
-        post_state_digest,
-        seal: seal.into(),
-    })
-    .abi_encode();
-
-    // Send the calldata to Ethereum.
-    let runtime = tokio::runtime::Runtime::new()?;
-    runtime.block_on(tx_sender.send(join_calldata))?;
-
-    Ok(())
 }
 
 pub struct InputBuilder {
