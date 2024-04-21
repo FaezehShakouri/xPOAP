@@ -1,6 +1,4 @@
-# myPOAP
-
-## The Problem
+# zkPoapCommunities
 
 ### Background
 
@@ -26,7 +24,73 @@ An ideal solution would work like this: The existing POAP protocol continues to 
 
 ## How It Works
 
-Leveraging Risc-zero technology, zkPOAPFeedback establishes a secure and Privacy-Preserving ecosystem. Here, users can confirm their ownership of POAP tokens acquired through various events or engagements.
+### High level overview
+
+Holders would generate a zero-knowledge proof of ownership for a POAP from a specific issuer off-chain. They could then use this proof to join a `Semaphore` group. By leveraging the `Semaphore` protocol, application developers could enable anonymous interactions using existing tools. Additionally, a `Semaphore` identity offers the added benefit of allowing holders to interact with the system without needing to regenerate a proof each time.
+
+### What exactly is being proven is zero knowledge?
+
+#### 1 - POAP data
+
+Each POAP is associated with an `eventId`. And all the required information is stored on-chain. More specifically the following `view` on the POAP contract is all we need:
+
+```solidity
+function tokenDetailsOfOwnerByIndex(address owner, uint256 index) external view returns (uint256, uint256);
+```
+
+This view takes in an `owner` address and an `index`. It then returns the corresponding `tokenId` and `eventId`. From this information, we'll want to expose the `eventId` and keep everything else (`owner`, `tokenId`, `index`) private.
+For this part, We'll make use of the `view-call` library of `risc0` to query the blockchain and generate a proof of the validity of data.
+
+#### 2 - Ownership of the wallet
+
+So far we have generated a proof that there exists an `owner` holding a POAP issued in a given event. Now the holder needs to proof that they actually have the private key of the owner wallet.
+
+For this, the user is required to signed predetermined message, like the following and pass it to the risc0 guest program:
+
+`This is a message that will be signed, and verified within the zkVM. It is intended to prove ownership of a POAP with eventId xxxx`
+
+the guest will then extract the signer of this message from the provided signature and makes the blockchain query described in step 1.
+
+### What is the nullifier?
+
+To prevent a holder from joining multiple times, the hash of their signature is used as a nullifier. However, even though this prevents the same owner from joining more than once, it does not prevent a new owner from using the same token if it is transferred. To address this, we need to freeze the block number at which the blockchain query is made, effectively disabling transfers.
+
+## Considerations
+
+This project is PoC and has known and unknown bugs.
+Also without loss of generality, the source code has some hardcoded data in it.
+
+## Project Structure
+
+Below are the primary files in the project directory
+
+```text
+.
+├── Cargo.toml                        // Configuration for Cargo and Rust
+├── foundry.toml                      // Configuration for Foundry
+├── apps
+│   ├── Cargo.toml
+│   └── src
+│       └── lib.rs                    // Utility functions
+│       └── bin
+│           └── publisher.rs          // Main app to publish program results into your app contract
+├── contracts
+│   ├── POAPGroup.sol                 // Get proof data and join to club
+|   ├── ISemaphore.sol                //
+│   └── ImageID.sol                   // Generated contract with the image ID for zkPOAPFeedback
+├── methods
+│   ├── Cargo.toml
+│   ├── guest
+│   │   ├── Cargo.toml
+│   │   └── src
+│   │       └── bin
+│   │           └── is_poap_owner.rs  // Guest program for checking ownership of POAPs
+│   └── src
+│       └── lib.rs                    // Compiled image IDs and tests for the guest program (is_poap_owner)
+└── tests
+    ├── POAPGroup.t.sol               // Tests for the basic example contract
+    └── Elf.sol                       // Generated contract with paths the guest program ELF files.
+```
 
 ## Dependencies
 
@@ -80,40 +144,6 @@ cargo risczero install
   ```sh
   RISC0_DEV_MODE=true forge test -vvv
   ```
-
-### Configuring Bonsai
-
-## Project Structure
-
-Below are the primary files in the project directory
-
-```text
-.
-├── Cargo.toml                        // Configuration for Cargo and Rust
-├── foundry.toml                      // Configuration for Foundry
-├── apps
-│   ├── Cargo.toml
-│   └── src
-│       └── lib.rs                    // Utility functions
-│       └── bin
-│           └── publisher.rs          // Main app to publish program results into your app contract
-├── contracts
-│   ├── POAPGroup.sol                 // Get proof data and join to club
-|   ├── ISemaphore.sol                //
-│   └── ImageID.sol                   // Generated contract with the image ID for zkPOAPFeedback
-├── methods
-│   ├── Cargo.toml
-│   ├── guest
-│   │   ├── Cargo.toml
-│   │   └── src
-│   │       └── bin
-│   │           └── is_poap_owner.rs  // Guest program for checking ownership of POAPs
-│   └── src
-│       └── lib.rs                    // Compiled image IDs and tests for the guest program (is_poap_owner)
-└── tests
-    ├── POAPGroup.t.sol               // Tests for the basic example contract
-    └── Elf.sol                       // Generated contract with paths the guest program ELF files.
-```
 
 [Bonsai]: https://dev.bonsai.xyz/
 [Foundry]: https://getfoundry.sh/
