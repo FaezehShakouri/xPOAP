@@ -1,8 +1,31 @@
-# zkPOAPFeedback
+# myPOAP
 
-zkPOAPFeedback is a privacy-focused platform tailored for individuals holding POAP (Proof of Attendance Protocol) tokens, offering them a unique opportunity to provide feedback within a club. This system guarantees complete privacy by enabling users to submit evidence of their POAP ownership without compromising their anonymity or the privacy of their POAP tokens.
+## The Problem
+
+### Background
+
+POAPs are everywhere and a lot of people own them. Here is a description from the official website [https://poap.xyz](poap.xyz):
+
+`POAP, short for "Proof of Attendance Protocol," allows you to mint memories as digital mementos we call "POAPs." Give POAPs to people for sharing a memory with you.`
+
+Technically, POAPs are simply NFTs on a blockchain. This means that the protocol is permissionless and composable by design. For example, someone could create a gated chat application on top of the POAP protocol to allow holders of EthGlobal POAPs to chat and interact.
+
+However, there is a fundamental privacy issue with the way the POAP protocol is currently implemented. Specifically, for holders to prove they own a POAP issued by EthGlobal, they need to disclose their wallet address. This, in turn, exposes more information about the holders than is necessary for the chat application.
+
+### Solutions
+
+#### A new protocol 🤔
+
+An obvious solution to the privacy problem is to design and implement a new protocol with privacy built into its design. While this approach might work, it would require significant duplicate engineering efforts and would need the promotion of an entirely new protocol. **And then what about all the POAPs already issued? do people then have to migrate to the new protocol?**
+
+#### ZK to the rescue 💯
+
+An ideal solution would work like this: The existing POAP protocol continues to function as usual, allowing people to issue and own POAPs just as they always have. However, when a holder wants to demonstrate ownership of a POAP from a specific event, they can do so without revealing their wallet address. Additionally, applications could integrate with the privacy-preserving protocol in a permission-less manner.
+
+**In this repository you'll find a PoC implementation of the second approach using RISC0**
 
 ## How It Works
+
 Leveraging Risc-zero technology, zkPOAPFeedback establishes a secure and Privacy-Preserving ecosystem. Here, users can confirm their ownership of POAP tokens acquired through various events or engagements.
 
 ## Dependencies
@@ -55,7 +78,7 @@ cargo risczero install
 - Test your Solidity contracts, integrated with your zkVM program.
 
   ```sh
-  RISC0_DEV_MODE=true forge test -vvv 
+  RISC0_DEV_MODE=true forge test -vvv
   ```
 
 ### Configuring Bonsai
@@ -72,18 +95,18 @@ Below are the primary files in the project directory
 │   ├── Cargo.toml
 │   └── src
 │       └── lib.rs                    // Utility functions
-│       └── bin                     
-│           └── publisher.rs          // Main app to publish program results into your app contract 
+│       └── bin
+│           └── publisher.rs          // Main app to publish program results into your app contract
 ├── contracts
 │   ├── POAPGroup.sol                 // Get proof data and join to club
-|   ├── ISemaphore.sol                // 
+|   ├── ISemaphore.sol                //
 │   └── ImageID.sol                   // Generated contract with the image ID for zkPOAPFeedback
 ├── methods
 │   ├── Cargo.toml
 │   ├── guest
 │   │   ├── Cargo.toml
 │   │   └── src
-│   │       └── bin                   
+│   │       └── bin
 │   │           └── is_poap_owner.rs  // Guest program for checking ownership of POAPs
 │   └── src
 │       └── lib.rs                    // Compiled image IDs and tests for the guest program (is_poap_owner)
