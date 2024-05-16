@@ -14,7 +14,7 @@ However, there is a fundamental privacy issue with the way the POAP protocol is 
 
 #### A new protocol 🤔
 
-An obvious solution to the privacy problem is to design and implement a new protocol with privacy built into its design. While this approach might work, it would require significant duplicate engineering efforts and would need the promotion of an entirely new protocol. **And then what about all the POAPs already issued? do people then have to migrate to the new protocol?**
+An obvious solution to the privacy problem is to design and implement a new protocol with privacy built into its design. While this approach might work, it would require significant duplicate engineering efforts and would need the promotion of an entirely new protocol. **And then what about all the POAPs already issued? Do people then have to migrate to the new protocol?**
 
 #### ZK to the rescue 💯
 
@@ -24,32 +24,32 @@ An ideal solution would work like this: The existing POAP protocol continues to 
 
 ## How It Works
 
-### High level overview
+### High-level overview
 
-Holders would generate a zero-knowledge proof of ownership for a POAP from a specific issuer off-chain. They could then use this proof to join a `Semaphore` group. By leveraging the `Semaphore` protocol, application developers could enable anonymous interactions using existing tools. Additionally, a `Semaphore` identity offers the added benefit of allowing holders to interact with the system without needing to regenerate a proof each time.
+Holders would generate a zero-knowledge proof of ownership for a POAP from a specific event off-chain. They could then use this proof to join a `Semaphore` group. By leveraging the `Semaphore` protocol, application developers could enable anonymous interactions using existing tools. Additionally, a `Semaphore` identity offers the added benefit of allowing holders to interact with the system without needing to regenerate a proof each time.
 
-### What exactly is being proven is zero knowledge?
+### What exactly is being proven in zero knowledge?
 
 #### 1 - POAP data
 
-Each POAP is associated with an `eventId`. And all the required information is stored on-chain. More specifically the following `view` on the POAP contract is all we need:
+Each POAP is associated with an `eventId`. And all the required information is stored on-chain. More specifically, the following `view` on the POAP contract is all we need:
 
 ```solidity
 function tokenDetailsOfOwnerByIndex(address owner, uint256 index) external view returns (uint256, uint256);
 ```
 
 This view takes in an `owner` address and an `index`. It then returns the corresponding `tokenId` and `eventId`. From this information, we'll want to expose the `eventId` and keep everything else (`owner`, `tokenId`, `index`) private.
-For this part, We'll make use of the `view-call` library of `risc0` to query the blockchain and generate a proof of the validity of data.
+For this part, we'll make use of the `view-call` library of `risc0` to query the blockchain and generate a proof of the validity of data.
 
 #### 2 - Ownership of the wallet
 
-So far we have generated a proof that there exists an `owner` holding a POAP issued in a given event. Now the holder needs to proof that they actually have the private key of the owner wallet.
+So far, we have generated a proof that there exists an `owner` holding a POAP issued in a given event. Now, the holder needs to prove that they actually have the private key of the owner wallet.
 
-For this, the user is required to signed predetermined message, like the following and pass it to the risc0 guest program:
+For this, the user is required to sign a predetermined message, like the following, and pass it to the risc0 guest program:
 
 `This is a message that will be signed, and verified within the zkVM. It is intended to prove ownership of a POAP with eventId xxxx`
 
-the guest will then extract the signer of this message from the provided signature and makes the blockchain query described in step 1.
+The guest will then extract the signer of this message from the provided signature and make the blockchain query described in step 1.
 
 ### What is the nullifier?
 
@@ -57,8 +57,8 @@ To prevent a holder from joining multiple times, the hash of their signature is 
 
 ## Considerations
 
-This project is PoC and has known and unknown bugs.
-Also without loss of generality, the source code has some hardcoded data in it.
+This project is a PoC and has known and unknown bugs.
+Also, without loss of generality, the source code has some hardcoded data in it.
 
 ## Project Structure
 
